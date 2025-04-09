@@ -48,44 +48,53 @@ public function signup(Request $request){
         ], 200);
 
 }
-public function login(Request $request){
-    $validateUser= Validator::make(
+public function login(Request $request) {
+    $validateUser = Validator::make(
         $request->all(),
         [
-            'email' => 'required|email|unique:users,email',
-            'password' => [
-                'required',
-                'string',
-                'min:8',          
-                'regex:/[a-z]/',  
-                'regex:/[A-Z]/',  
-                'regex:/[0-9]/',  
-                'regex:/[@$!%*?&]/' 
-            ],
-        ]);
-        if(Auth::attempt(['email' => $request->email, 'password' => $request->password])){
-            $user = Auth::user();
-            return response()->json([
-                'status' => true,
-                'message' => 'User Logged In Successfully',
-                'token' => $user->createToken('Api Token')->plainTextToken,
-                'token_type' => 'Bearer',
-            ], 200);
-        }else{
-            return response()->json([
-                'status' => false,
-                'message' => 'Invalid Credentials',
-            ], 422);
-        }
-}
-public function logout(Request $request){
-    $user = $request->user();
-    $user->Tokens()->delete();
-    return response()->json([
-        'status' => true,
-        'user' => $user,
-        'message' => 'User Logged Out Successfully',
-    ], 200);
-}
+            'email' => 'required|email',
+            'password' => 'required|string|min:8'
+        ]
+    );
+
+    if ($validateUser->fails()) {
+        return response()->json(['status' => false, 'message' => $validateUser->errors()], 422);
+    }
+
+    if (Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
+        $user = Auth::user();
+
+        $user->tokens()->delete();
+
+        $expirationMinutes = config('sanctum.expiration');
+        $expirationSeconds = $expirationMinutes * 60; 
+
+        $token = $user->createToken('Api Token', ['*'], now()->addSeconds($expirationSeconds))->plainTextToken;
+
+        return response()->json([
+            'status' => true,
+            'message' => 'User Logged In Successfully',
+            'token' => $token,
+            'token_type' => 'Bearer',
+            'expires_in' => $expirationSeconds 
+        ], 200);
+    } else {
+        return response()->json([
+            'status' => false,
+            'message' => 'Invalid Credentials',
+        ], 422);
+    }
 }
 
+public function logout(Request $request) {
+    $user = $request->user();
+    $user->tokens()->delete();
+
+    return response()->json([
+        'status' => true,
+        'message' => 'User Logged Out Successfully'
+    ], 200);
+}
+
+}
+?>

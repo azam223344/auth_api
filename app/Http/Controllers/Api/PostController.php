@@ -114,7 +114,7 @@ class PostController extends Controller
             $img = $request->image;
             $ext= $img->getClientOriginalExtension();
             $imageName = time().'.'.$ext;
-            $img->move(public_path().'/uploads', $imageName);
+            $img->move(public_path().'/uploads/', $imageName);
 
             }else{
                 $imageName = $postImage->image;
@@ -137,15 +137,27 @@ class PostController extends Controller
      */
     public function destroy(string $id)
     {
-        $imagePath = Post::select('image')->where('id', $id)->get();
-        $filePath = public_path().'/uploads/'.$imagePath[0]['image'];
-        unlink($filePath);
-        $post = Post::where('id', $id)->get();
+        $post = Post::find($id);
+    
+        if (!$post) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Post not found'
+            ], 404);
+        }
+    
+        if ($post->image) {
+            $filePath = public_path('uploads/' . $post->image);
+            if (file_exists($filePath)) {
+                unlink($filePath);
+            }
+        }
+    
+        $post->delete();
+    
         return response()->json([
             'status' => true,
-            'message' => 'Post Deleted Successfully',
-            'post' => $post
+            'message' => 'Post Deleted Successfully'
         ], 200);
-     
-    }
+    } 
 }
